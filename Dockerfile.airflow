@@ -1,0 +1,27 @@
+FROM apache/airflow:2.7.1-python3.10
+
+USER root
+
+# Install system deps for dbt-bigquery + golang
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git \
+        curl \
+        gnupg \
+        apt-transport-https \
+        ca-certificates \
+    && curl -fsSL https://go.dev/dl/go1.21.13.linux-amd64.tar.gz \
+       | tar -C /usr/local -xz \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+ENV PATH="/usr/local/go/bin:${PATH}"
+
+USER airflow
+
+# Python deps: dbt-core, dbt-bigquery, great expectations
+COPY requirements-airflow.txt /tmp/requirements-airflow.txt
+RUN pip install --no-cache-dir -r /tmp/requirements-airflow.txt
+
+# DAGs + pipeline code
+COPY --chown=airflow:airflow dags/ /opt/airflow/dags/
+COPY --chown=airflow:airflow data_ingestion/ /opt/airflow/data_ingestion/
+COPY --chown=airflow:airflow data_transformation/ /opt/airflow/data_transformation/
